@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<title>1001 Player • OBS Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@500;700;800&family=Poppins:wght@500;700;800&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  html, body {
+    background: transparent;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Vazirmatn', 'Poppins', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ═══ Card ═══ */
+  .overlay-card {
+    position: fixed;
+    inset-inline-start: 24px;
+    bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 18px 12px 12px;
+    min-width: 340px;
+    max-width: 460px;
+    border-radius: 20px;
+    background: rgba(10, 10, 20, 0.68);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 20px 48px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 400ms cubic-bezier(0.16, 1, 0.3, 1),
+                transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+    will-change: opacity, transform;
+  }
+  .overlay-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Accent line at top */
+  .overlay-card::before {
+    content: "";
+    position: absolute;
+    top: 0; inset-inline-start: 14px; inset-inline-end: 14px;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: linear-gradient(90deg,
+      transparent,
+      var(--accent, #427aeb) 20%,
+      var(--accent-light, #6b9aff) 50%,
+      var(--accent, #427aeb) 80%,
+      transparent);
+    opacity: 0.9;
+  }
+
+  /* ═══ Disc (Cover) — مربع گرد، بدون چرخش ═══ */
+  .disc {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent, #427aeb), var(--accent-dark, #2f5fc9));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow:
+      0 8px 24px rgba(66, 122, 235, 0.35),
+      inset 0 0 0 4px rgba(255, 255, 255, 0.06),
+      inset 0 0 0 8px rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+  }
+  .disc .disc-icon {
+    position: relative;
+    z-index: 3;
+    width: 44%;
+    height: 44%;
+    color: rgba(255, 255, 255, 0.95);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    transform: translateY(-1px);
+  }
+  .disc .disc-cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
+  .disc .disc-cover.visible {
+    opacity: 1;
+  }
+  .disc .disc-cover.visible ~ .disc-icon {
+    display: none;
+  }
+
+  /* فقط Pulse، بدون Spin */
+  .overlay-card.playing .disc {
+    animation: discPulse 2.8s ease-in-out infinite;
+  }
+  @keyframes discPulse {
+    0%, 100% { box-shadow: 0 8px 24px rgba(66, 122, 235, 0.35),
+                           inset 0 0 0 4px rgba(255, 255, 255, 0.06),
+                           inset 0 0 0 8px rgba(255, 255, 255, 0.03); }
+    50%      { box-shadow: 0 12px 32px rgba(66, 122, 235, 0.55),
+                           inset 0 0 0 4px rgba(255, 255, 255, 0.1),
+                           inset 0 0 0 8px rgba(255, 255, 255, 0.05); }
+  }
+
+  /* ═══ Info ═══ */
+  .info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .title {
+    font-size: 15px;
+    font-weight: 800;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+  .artist {
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    text-align: right;
+  }
+
+  /* ═══ Progress bar ═══ */
+  .progress-track {
+    position: relative;
+    width: 100%;
+    height: 3px;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.1);
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+    height: 100%;
+    width: 0%;
+    border-radius: 100px;
+    background: linear-gradient(90deg, var(--accent, #427aeb), var(--accent-light, #6b9aff));
+    box-shadow: 0 0 12px var(--accent, #427aeb);
+    transition: width 250ms linear;
+  }
+
+  /* ═══ Equalizer ═══ */
+  .eq {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 26px;
+    padding-inline-start: 6px;
+    flex-shrink: 0;
+  }
+  .eq span {
+    width: 3px;
+    height: 25%;
+    border-radius: 2px;
+    background: linear-gradient(180deg, var(--accent-light, #6b9aff), var(--accent, #427aeb));
+    box-shadow: 0 0 6px var(--accent, #427aeb);
+    opacity: 0.4;
+    transition: opacity 200ms ease;
+  }
+  .overlay-card.playing .eq span { opacity: 1; }
+  .overlay-card.playing .eq span:nth-child(1) { animation: eq 700ms ease-in-out infinite; }
+  .overlay-card.playing .eq span:nth-child(2) { animation: eq 900ms ease-in-out infinite 120ms; }
+  .overlay-card.playing .eq span:nth-child(3) { animation: eq 800ms ease-in-out infinite 240ms; }
+  .overlay-card.playing .eq span:nth-child(4) { animation: eq 1000ms ease-in-out infinite 60ms; }
+  @keyframes eq {
+    0%, 100% { height: 25%; }
+    50%      { height: 100%; }
+  }
+
+  /* Disc position toggle */
+  .overlay-card.disc-left { flex-direction: row-reverse; }
+  .overlay-card.disc-left .eq { padding-inline-start: 0; padding-inline-end: 6px; }
+
+  /* ═══ Liked heart ═══ */
+  .heart {
+    position: absolute;
+    top: 10px;
+    inset-inline-end: 12px;
+    width: 12px;
+    height: 12px;
+    color: #ef4444;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: opacity 300ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .overlay-card.liked .heart {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .heart svg { width: 100%; height: 100%; fill: currentColor; }
+
+  /* ═══ Sizes ═══ */
+  @media (max-width: 500px) {
+    .overlay-card { min-width: 280px; max-width: calc(100vw - 32px); padding: 10px 14px 10px 10px; }
+    .disc { width: 44px; height: 44px; border-radius: 10px; }
+    .disc .disc-cover { border-radius: 10px; }
+    .title { font-size: 13px; }
+    .artist { font-size: 10px; }
+    .eq { height: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="overlay-card" id="overlayCard">
+  <div class="disc" aria-hidden="true" id="discEl">
+    <img class="disc-cover" id="discCover" alt="" />
+    <svg class="disc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+         stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 18V5l12-2v13"/>
+      <circle cx="6" cy="18" r="3"/>
+      <circle cx="18" cy="16" r="3"/>
+    </svg>
+  </div>
+
+  <div class="info">
+    <div class="title" id="trackTitle">در انتظار پخش…</div>
+    <div class="artist" id="trackArtist" dir="ltr">1001 Player</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <div class="eq" aria-hidden="true">
+    <span></span><span></span><span></span><span></span>
+  </div>
+
+  <div class="heart" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const card = document.getElementById('overlayCard');
+  const titleEl = document.getElementById('trackTitle');
+  const artistEl = document.getElementById('trackArtist');
+  const progressEl = document.getElementById('progressFill');
+  const discCoverEl = document.getElementById('discCover');
+
+  let lastState = { isPlaying: false, title: '' };
+  let hideTimer = null;
+  let forceHide = false;
+  let hasData = false;
+
+  /* ═══ اتصال به پلیر ═══ */
+  let channel = null;
+  try {
+    channel = new BroadcastChannel('1001player_overlay');
+  } catch (err) {
+    console.warn('[Overlay] BroadcastChannel not supported', err);
+  }
+
+  /* ═══ تخمین زمان بین پیام‌ها ═══ */
+  let lastTimestamp = 0;
+  let lastCurrentTime = 0;
+  let lastDuration = 0;
+  let lastIsPlaying = false;
+
+  function tick() {
+    requestAnimationFrame(tick);
+    if (!lastIsPlaying || lastDuration <= 0 || !lastTimestamp) return;
+    const elapsed = (Date.now() - lastTimestamp) / 1000;
+    const cur = Math.min(lastDuration, lastCurrentTime + elapsed);
+    const pct = (cur / lastDuration) * 100;
+    progressEl.style.width = pct + '%';
+  }
+  requestAnimationFrame(tick);
+
+  /* ═══ پارامترهای URL ═══ */
+  const params = new URLSearchParams(location.search);
+
+  const accentColor = params.get('color');
+  if (accentColor) {
+    document.documentElement.style.setProperty('--accent', accentColor);
+    document.documentElement.style.setProperty('--accent-light', accentColor);
+    document.documentElement.style.setProperty('--accent-dark', accentColor);
+  }
+
+  const pos = params.get('pos') || 'bottom-left';
+  const discPos = params.get('disc') || 'right';
+  if (discPos === 'left') {
+    card.classList.add('disc-left');
+  }
+
+  const positions = {
+    'bottom-left':  { insetInlineStart: '24px', bottom: '24px', top: 'auto', insetInlineEnd: 'auto' },
+    'bottom-right': { insetInlineStart: 'auto', bottom: '24px', top: 'auto', insetInlineEnd: '24px' },
+    'top-left':     { insetInlineStart: '24px', bottom: 'auto', top: '24px', insetInlineEnd: 'auto' },
+    'top-right':    { insetInlineStart: 'auto', bottom: 'auto', top: '24px', insetInlineEnd: '24px' },
+  };
+  if (positions[pos]) Object.assign(card.style, positions[pos]);
+
+  forceHide = params.get('hideOnPause') === '1';
+
+  /* ═══ دریافت پیام از پلیر ═══ */
+  if (channel) {
+    channel.onmessage = (e) => {
+      const data = e.data;
+      if (!data || data.type !== 'state') return;
+      applyState(data);
+    };
+  }
+
+  function applyState(s) {
+    hasData = true;
+
+    lastTimestamp = s.timestamp || Date.now();
+    lastCurrentTime = s.currentTime || 0;
+    lastDuration = s.duration || 0;
+    lastIsPlaying = !!s.isPlaying;
+
+    // Title
+    const displayTitle = s.title || 'در انتظار پخش…';
+    if (titleEl.textContent !== displayTitle) {
+      titleEl.textContent = displayTitle;
+      titleEl.animate(
+        [{ opacity: 0.4 }, { opacity: 1 }],
+        { duration: 300, easing: 'ease-out' }
+      );
+    }
+
+    // Artist
+    artistEl.textContent = s.artist || '1001 Player';
+
+    // 🎨 Cover
+    if (s.cover && discCoverEl) {
+      if (discCoverEl.src !== s.cover) {
+        discCoverEl.src = s.cover;
+        discCoverEl.classList.add('visible');
+      }
+    } else if (discCoverEl) {
+      discCoverEl.classList.remove('visible');
+      discCoverEl.removeAttribute('src');
+    }
+
+    // Progress
+    const pct = lastDuration > 0 ? (lastCurrentTime / lastDuration) * 100 : 0;
+    progressEl.style.width = pct + '%';
+
+    // Like
+    card.classList.toggle('liked', !!s.liked);
+
+    // Play state
+    card.classList.toggle('playing', lastIsPlaying);
+
+    lastState = { isPlaying: lastIsPlaying, title: s.title };
+
+    if (lastIsPlaying) {
+      show();
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    } else {
+      if (forceHide) {
+        hide();
+      } else {
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => hide(), 5000);
+      }
+    }
+  }
+
+  function show() {
+    card.classList.add('visible');
+  }
+  function hide() {
+    card.classList.remove('visible');
+  }
+
+  /* ═══ بازیابی از localStorage ═══ */
+  try {
+    const cached = JSON.parse(localStorage.getItem('a1001_overlay_state') || 'null');
+    if (cached && cached.timestamp && Date.now() - cached.timestamp < 30000) {
+      applyState(cached);
+    }
+  } catch { /* noop */ }
+
+  setTimeout(() => {
+    if (!hasData) {
+      card.classList.add('visible');
+    }
+  }, 500);
+
+window.__overlay = { 
+  show, 
+  hide, 
+  applyState,
+  applyStateFromJSON: function(str) {
+    try { 
+      const data = JSON.parse(str);
+      console.log('[Overlay] Applying state:', data.title);
+      applyState(data); 
+    } catch(e) { 
+      console.error('[Overlay] JSON parse error:', e, str); 
+    }
+  }
+};
+
+  console.log('%c🎬 1001 Player Overlay ready', 'color: #427aeb; font-weight: bold;');
+  console.log('Tips: overlay.html?pos=top-right&disc=left&color=%23ff0000');
+})();
+</script>
+
+</body>
+</html>
